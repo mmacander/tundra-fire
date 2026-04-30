@@ -13,7 +13,7 @@ Two GCP projects are involved — this is a deliberate split, not an inconsisten
 - **`akveg-map`** — billing/quota project. Used for `ee.Initialize()`, `storage.Client()`, and `with_quota_project()`. All API costs land here.
 - **`fisl-tundra-fire`** — asset owner project. The EE ImageCollection and all image assets live under `projects/fisl-tundra-fire/assets/...`. HTTP requests to the EE REST API target this project as the resource path, but quota is charged to `akveg-map`.
 
-The COG conversion startup scripts run on GCP VMs; those VMs must have IAM access to both `smp-ee-files` and `akveg-data` buckets, typically via the VM's service account (whichever project the VM is created in).
+The COG conversion startup scripts run on GCP VMs (created in `akveg-map`). The VM's default service account has access to `akveg-data` but **not** to `smp-ee-files` — so the raw archive step must be run locally on mason first (see Workflow Order). The VM must be created **without** `--no-address`; omitting a public IP breaks GCS connectivity even with `--scopes=cloud-platform`.
 
 ## Data Locations
 
@@ -43,14 +43,26 @@ Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20
 
 Before starting a new ingest, create the EE collection manually:
 ```bash
-earthengine create collection projects/fisl-tundra-fire/assets/potter_fire_v20260430
+~/miniconda3/bin/conda run -n ee earthengine create collection projects/fisl-tundra-fire/assets/potter_fire_{version}
 ```
 
 Then:
-1. Deploy `cog_conversion/startup_all_years_cog_{version}.sh` as a GCP e2-highcpu-32 VM startup script — it archives raw TIFFs into the versioned prefix, converts to COGs, then self-deletes the VM
-2. Register COGs to EE: `conda run -n ee python3 ee_registration/register_full_collection_{version}.py`
-3. Audit: `conda run -n ee python3 qa_utils/compare_ee_gcs_{version}.py`
-4. Fix gaps: hardcode missing tiles in `ee_registration/register_missing.py` and re-run
+1. **Archive raw TIFFs** from mason (VM can't reach `smp-ee-files`):
+   ```bash
+   bash cog_conversion/archive_raw_{version}.sh
+   ```
+2. **Deploy COG conversion VM** — must have a public IP (no `--no-address`):
+   ```bash
+   gcloud compute instances create cog-convert-{version} \
+     --zone=us-central1-a \
+     --machine-type=e2-highcpu-32 \
+     --scopes=cloud-platform \
+     --metadata-from-file=startup-script=cog_conversion/startup_all_years_cog_{version}.sh
+   ```
+   The VM converts COGs in 32-parallel then self-deletes.
+3. **Register COGs to EE**: `~/miniconda3/bin/conda run -n ee python3 ee_registration/register_full_collection_{version}.py`
+4. **Audit**: `~/miniconda3/bin/conda run -n ee python3 qa_utils/compare_ee_gcs_{version}.py`
+5. **Fix gaps**: hardcode missing tiles in `ee_registration/register_missing.py` and re-run
 
 Quick tests (10 tiles, safe to run locally):
 ```bash
@@ -60,7 +72,7 @@ bash tests/test_conversion_10.sh
 
 ## Architecture
 
-**cog_conversion/** — GDAL conversion startup scripts. Step 1 within each script does a `gsutil rsync` to archive the raw source into the versioned prefix in `akveg-data` (this is how version history is preserved). Step 2 converts archived TIFs to COGs in parallel (32 processes). Scripts self-delete the VM on completion.
+**cog_conversion/** — Two scripts per version: `archive_raw_{version}.sh` runs locally on mason and rsyncs raw TIFFs from `smp-ee-files` into the versioned prefix in `akveg-data` (this is how version history is preserved, since `smp-ee-files` overwrites in place). `startup_all_years_cog_{version}.sh` is the VM startup script — it reads from the `akveg-data` archive, converts to COGs in 32-parallel, and self-deletes the VM on completion.
 
 **ee_registration/** — EE asset ingestion. `register_full_collection_{version}.py` uses `ThreadPoolExecutor(max_workers=5)` with exponential backoff (`2^attempt + random()`, max 5 retries) for HTTP 429 rate limits. All scripts skip already-registered assets (idempotent). `register_missing.py` is for manually hardcoded stragglers after audit.
 
