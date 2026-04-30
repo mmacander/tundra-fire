@@ -44,7 +44,7 @@ var aoi = screenTool.screenFires({
 // });
 
 
-var MRFY_PROB_THRESHOLD = 50;  // probability cutoff for MRFY (0–100)
+var PROB_THRESHOLD = 50;  // probability cutoff for binary layers and MRFY (0–100)
 
 // ============================================================
 // Helper: build Most Recent Fire Year image from a collection
@@ -54,34 +54,39 @@ function makeMRFY(ic) {
     var year = ee.Number(img.get('year'));
     return img.addBands(
       ee.Image.constant(year).uint16().rename('year')
-        .updateMask(img.select('Probability').gte(MRFY_PROB_THRESHOLD))
+        .updateMask(img.select('Probability').gte(PROB_THRESHOLD))
     );
   }).select('year').max();
 }
 
 var mrfyVis   = {min: 2000, max: 2024, palette: ['yellow', 'orange', 'red']};
 var probVis   = {min: 0, max: 100, palette: ['green', 'yellow', 'red']};
-var binaryVis = {min: 0, max: 1, palette: 'red', opacity: 0.5};
 
 
 // ============================================================
-// v20260211 — original baseline
+// v20260211 — original baseline  (band name: B0)
 // ============================================================
 var ic_v20260211 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260211');
-Map.addLayer(ic_v20260211.max().select('B0').selfMask(),
+var max_v20260211 = ic_v20260211.max();
+Map.addLayer(max_v20260211.select('B0').selfMask(),
              probVis, 'v20260211 prob', false);
-Map.addLayer(ic_v20260211.max().select('B0').gte(50).selfMask(),
-             {min:0, max:1, palette: 'yellow', opacity: 0.5}, 'v20260211 binary 50 (yellow)', false);
+Map.addLayer(max_v20260211.select('B0').gte(PROB_THRESHOLD).selfMask(),
+             {min:0, max:1, palette: 'yellow', opacity: 0.5}, 'v20260211 binary50 (yellow)', false);
 
 
 // ============================================================
 // v20260414 — previous ingest (wopgams)
 // ============================================================
 var ic_v20260414 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260414');
-Map.addLayer(ic_v20260414.max().select('Probability').selfMask(),
+var max_v20260414 = ic_v20260414.max();
+Map.addLayer(max_v20260414.select('Probability').selfMask(),
              probVis, 'v20260414 prob', false);
-Map.addLayer(ic_v20260414.max().select('Burn_Mask').selfMask(),
-             {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260414 binary (blue)', false);
+Map.addLayer(max_v20260414.select('Probability').gte(PROB_THRESHOLD).selfMask(),
+             {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260414 binary50 (blue)', false);
+// Verify: Burn_Mask vs Probability>=50 (pixels that differ show as 1)
+Map.addLayer(max_v20260414.select('Burn_Mask')
+               .neq(max_v20260414.select('Probability').gte(PROB_THRESHOLD)).selfMask(),
+             {min:0, max:1, palette: 'white'}, 'v20260414 Burn_Mask vs prob50 diff', false);
 Map.addLayer(makeMRFY(ic_v20260414),
              mrfyVis, 'v20260414 MRFY', false);
 
@@ -90,10 +95,15 @@ Map.addLayer(makeMRFY(ic_v20260414),
 // v20260430 — multiscale model (current best)
 // ============================================================
 var ic_v20260430 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260430');
-Map.addLayer(ic_v20260430.max().select('Probability').selfMask(),
+var max_v20260430 = ic_v20260430.max();
+Map.addLayer(max_v20260430.select('Probability').selfMask(),
              probVis, 'v20260430 prob');
-Map.addLayer(ic_v20260430.max().select('Burn_Mask').selfMask(),
-             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary (red)', false);
+Map.addLayer(max_v20260430.select('Probability').gte(PROB_THRESHOLD).selfMask(),
+             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary50 (red)');
+// Verify: Burn_Mask vs Probability>=50 (pixels that differ show as 1)
+Map.addLayer(max_v20260430.select('Burn_Mask')
+               .neq(max_v20260430.select('Probability').gte(PROB_THRESHOLD)).selfMask(),
+             {min:0, max:1, palette: 'white'}, 'v20260430 Burn_Mask vs prob50 diff', false);
 Map.addLayer(makeMRFY(ic_v20260430),
              mrfyVis, 'v20260430 MRFY (multiscale)');
 
