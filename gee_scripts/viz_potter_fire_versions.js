@@ -66,7 +66,7 @@ var binaryVis = {min: 0, max: 1, palette: 'red', opacity: 0.5};
 // v20260211 — original baseline
 // ============================================================
 var ic_v20260211 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260211');
-Map.addLayer(ic_v20260211.max().selfMask(),
+Map.addLayer(ic_v20260211.max().select('Probability').selfMask(),
              probVis, 'v20260211 prob', false);
 Map.addLayer(ic_v20260211.max().gte(50).selfMask(),
              {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260211 binary 50', false);
@@ -76,7 +76,7 @@ Map.addLayer(ic_v20260211.max().gte(50).selfMask(),
 // v20260414 — previous ingest (wopgams)
 // ============================================================
 var ic_v20260414 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260414');
-Map.addLayer(ic_v20260414.max().selfMask(),
+Map.addLayer(ic_v20260414.max().select('Probability').selfMask(),
              probVis, 'v20260414 prob', false);
 Map.addLayer(ic_v20260414.max().selfMask(),
              {bands: 'Burn_Mask', min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260414 binary', false);
@@ -88,7 +88,7 @@ Map.addLayer(makeMRFY(ic_v20260414),
 // v20260430 — multiscale model (current best)
 // ============================================================
 var ic_v20260430 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260430');
-Map.addLayer(ic_v20260430.max().selfMask(),
+Map.addLayer(ic_v20260430.max().select('Probability').selfMask(),
              probVis, 'v20260430 prob');
 Map.addLayer(ic_v20260430.max().selfMask(),
              {bands: 'Burn_Mask', min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary', false);
