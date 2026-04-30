@@ -66,9 +66,9 @@ var binaryVis = {min: 0, max: 1, palette: 'red', opacity: 0.5};
 // v20260211 — original baseline
 // ============================================================
 var ic_v20260211 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260211');
-Map.addLayer(ic_v20260211.max().select('Probability').selfMask(),
+Map.addLayer(ic_v20260211.max().select('B0').selfMask(),
              probVis, 'v20260211 prob', false);
-Map.addLayer(ic_v20260211.max().gte(50).selfMask(),
+Map.addLayer(ic_v20260211.max().select('B0').gte(50).selfMask(),
              {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260211 binary 50', false);
 
 
