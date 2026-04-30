@@ -81,12 +81,10 @@ var ic_v20260414 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_f
 var max_v20260414 = ic_v20260414.max();
 Map.addLayer(max_v20260414.select('Probability').selfMask(),
              probVis, 'v20260414 prob', false);
+Map.addLayer(max_v20260414.select('Burn_Mask').selfMask(),
+             {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260414 Burn_Mask (blue)', false);
 Map.addLayer(max_v20260414.select('Probability').gte(PROB_THRESHOLD).selfMask(),
              {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260414 binary50 (blue)', false);
-// Verify: Burn_Mask vs Probability>=50 (pixels that differ show as 1)
-Map.addLayer(max_v20260414.select('Burn_Mask')
-               .neq(max_v20260414.select('Probability').gte(PROB_THRESHOLD)).selfMask(),
-             {min:0, max:1, palette: 'white'}, 'v20260414 Burn_Mask vs prob50 diff', false);
 Map.addLayer(makeMRFY(ic_v20260414),
              mrfyVis, 'v20260414 MRFY', false);
 
@@ -98,12 +96,10 @@ var ic_v20260430 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_f
 var max_v20260430 = ic_v20260430.max();
 Map.addLayer(max_v20260430.select('Probability').selfMask(),
              probVis, 'v20260430 prob');
+Map.addLayer(max_v20260430.select('Burn_Mask').selfMask(),
+             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 Burn_Mask (red)');
 Map.addLayer(max_v20260430.select('Probability').gte(PROB_THRESHOLD).selfMask(),
-             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary50 (red)');
-// Verify: Burn_Mask vs Probability>=50 (pixels that differ show as 1)
-Map.addLayer(max_v20260430.select('Burn_Mask')
-               .neq(max_v20260430.select('Probability').gte(PROB_THRESHOLD)).selfMask(),
-             {min:0, max:1, palette: 'white'}, 'v20260430 Burn_Mask vs prob50 diff', false);
+             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary50 (red)', false);
 Map.addLayer(makeMRFY(ic_v20260430),
              mrfyVis, 'v20260430 MRFY (multiscale)');
 
