@@ -44,6 +44,8 @@ var aoi = screenTool.screenFires({
 // });
 
 
+var MRFY_PROB_THRESHOLD = 50;  // probability cutoff for MRFY (0–100)
+
 // ============================================================
 // Helper: build Most Recent Fire Year image from a collection
 // ============================================================
@@ -52,7 +54,7 @@ function makeMRFY(ic) {
     var year = ee.Number(img.get('year'));
     return img.addBands(
       ee.Image.constant(year).uint16().rename('year')
-        .updateMask(img.select('Probability').gt(0))
+        .updateMask(img.select('Probability').gte(MRFY_PROB_THRESHOLD))
     );
   }).select('year').max();
 }
