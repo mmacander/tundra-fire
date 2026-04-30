@@ -69,7 +69,7 @@ var ic_v20260211 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_f
 Map.addLayer(ic_v20260211.max().select('B0').selfMask(),
              probVis, 'v20260211 prob', false);
 Map.addLayer(ic_v20260211.max().select('B0').gte(50).selfMask(),
-             {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260211 binary 50', false);
+             {min:0, max:1, palette: 'yellow', opacity: 0.5}, 'v20260211 binary 50 (yellow)', false);
 
 
 // ============================================================
@@ -78,8 +78,8 @@ Map.addLayer(ic_v20260211.max().select('B0').gte(50).selfMask(),
 var ic_v20260414 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260414');
 Map.addLayer(ic_v20260414.max().select('Probability').selfMask(),
              probVis, 'v20260414 prob', false);
-Map.addLayer(ic_v20260414.max().selfMask(),
-             {bands: 'Burn_Mask', min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260414 binary', false);
+Map.addLayer(ic_v20260414.max().select('Burn_Mask').selfMask(),
+             {min:0, max:1, palette: 'blue', opacity: 0.5}, 'v20260414 binary (blue)', false);
 Map.addLayer(makeMRFY(ic_v20260414),
              mrfyVis, 'v20260414 MRFY', false);
 
@@ -90,8 +90,8 @@ Map.addLayer(makeMRFY(ic_v20260414),
 var ic_v20260430 = ee.ImageCollection('projects/fisl-tundra-fire/assets/potter_fire_v20260430');
 Map.addLayer(ic_v20260430.max().select('Probability').selfMask(),
              probVis, 'v20260430 prob');
-Map.addLayer(ic_v20260430.max().selfMask(),
-             {bands: 'Burn_Mask', min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary', false);
+Map.addLayer(ic_v20260430.max().select('Burn_Mask').selfMask(),
+             {min:0, max:1, palette: 'red', opacity: 0.5}, 'v20260430 binary (red)', false);
 Map.addLayer(makeMRFY(ic_v20260430),
              mrfyVis, 'v20260430 MRFY (multiscale)');
 
