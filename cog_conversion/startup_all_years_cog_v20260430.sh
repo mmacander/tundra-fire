@@ -12,7 +12,7 @@ echo "Starting v20260430 FULL conversion at $(date)"
 apt-get update && apt-get install -y gdal-bin
 
 RAW_BUCKET="smp-ee-files"
-RAW_PREFIX="30m_land_sent/"
+RAW_PREFIX="30m_land_sent_multiscale/"
 
 DEST_BUCKET="akveg-data"
 VERSION="v20260430"

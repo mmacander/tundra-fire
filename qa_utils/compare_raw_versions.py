@@ -15,9 +15,9 @@ GCS_PROJECT   = 'akveg-map'
 OLD_BUCKET = 'smp-ee-files'
 OLD_PREFIX = '30m_land_sent/'
 
-# New dataset — update this to the actual staging path before running
+# New dataset (v20260430 — multiscale model output)
 NEW_BUCKET = 'smp-ee-files'
-NEW_PREFIX = '30m_land_sent_v2/'   # <-- UPDATE THIS
+NEW_PREFIX = '30m_land_sent_multiscale/'
 
 # -----------------------------------------------------------------------
 

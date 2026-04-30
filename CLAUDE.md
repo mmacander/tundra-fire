@@ -37,7 +37,7 @@ When starting a new version, create versioned copies of the relevant scripts rat
 - `ee_registration/register_full_collection_{version}.py`
 - `qa_utils/compare_ee_gcs_{version}.py`
 
-Current versions in repo: `v20260414` (original), `v20260430` (updated dataset, adds 2024 and improves 2004/2015).
+Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20260430` (multiscale model output, source: `30m_land_sent_multiscale/`, adds 2024).
 
 ## Workflow Order
 
