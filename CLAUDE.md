@@ -37,7 +37,7 @@ When starting a new version, create versioned copies of the relevant scripts rat
 - `ee_registration/register_full_collection_{version}.py`
 - `qa_utils/compare_ee_gcs_{version}.py`
 
-Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20260430` (multiscale model output, source: `30m_land_sent_multiscale/`, adds 2024).
+Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20260430` (multiscale model output, source: `30m_land_sent_multiscale/`, adds 2024, 6,071 assets).
 
 ## Workflow Order
 
@@ -63,6 +63,33 @@ Then:
 3. **Register COGs to EE**: `~/miniconda3/bin/conda run -n ee python3 ee_registration/register_full_collection_{version}.py`
 4. **Audit**: `~/miniconda3/bin/conda run -n ee python3 qa_utils/compare_ee_gcs_{version}.py`
 5. **Fix gaps**: hardcode missing tiles in `ee_registration/register_missing.py` and re-run
+
+### Supplementary fill-in (when source data is updated after initial ingest)
+
+All three pipeline steps are idempotent, so filling in new or corrected tiles for an existing version is safe:
+
+```bash
+# 1. Re-sync archive (picks up new/changed tiles only)
+bash cog_conversion/archive_raw_{version}.sh
+
+# 2. Re-deploy VM (skips existing COGs, converts only new tiles)
+gcloud compute instances create cog-convert-{version}-patch \
+  --zone=us-central1-a --machine-type=e2-highcpu-32 \
+  --scopes=cloud-platform \
+  --metadata-from-file=startup-script=cog_conversion/startup_all_years_cog_{version}.sh
+
+# 3. Re-run registration (skips existing assets, adds new ones)
+~/miniconda3/bin/conda run -n ee python3 ee_registration/register_full_collection_{version}.py
+```
+
+If source content changed (not just new tiles), delete the stale COGs and EE assets for the affected years before re-running:
+```bash
+gsutil -m rm -r gs://akveg-data/disturbance/potter_cnn/{version}/{year}/
+gsutil -m rm -r gs://akveg-data/disturbance/potter_cnn/{version}/smp-ee-files/.../{year}/
+# Delete EE assets: filter by year prefix in collection and call ee.data.deleteAsset()
+```
+
+**Counting tiles**: use `gsutil ls "gs://bucket/prefix/{year}/*.tif" | wc -l` not `gsutil ls gs://bucket/prefix/{year}/ | wc -l` — the trailing-slash form includes the directory entry and inflates the count by 1.
 
 Quick tests (10 tiles, safe to run locally):
 ```bash
