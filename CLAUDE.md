@@ -8,10 +8,10 @@ Pipeline for ingesting burned area probability rasters (Potter CNN model) into G
 
 ## GCP Projects
 
-Two GCP projects are involved — this is a deliberate split, not an inconsistency:
+Two GCP projects are involved:
 
-- **`akveg-map`** — billing/quota project. Used for `ee.Initialize()`, `storage.Client()`, and `with_quota_project()`. All API costs land here.
-- **`fisl-tundra-fire`** — asset owner project. The EE ImageCollection and all image assets live under `projects/fisl-tundra-fire/assets/...`. HTTP requests to the EE REST API target this project as the resource path, but quota is charged to `akveg-map`.
+- **`akveg-map`** — billing/quota project for COG conversion VMs, GCS operations, and the COG-backed EE registration pipeline. Used for `ee.Initialize()`, `storage.Client()`, and `with_quota_project()` in those scripts.
+- **`fisl-tundra-fire`** — asset owner project. All EE ImageCollections and image assets live under `projects/fisl-tundra-fire/assets/...`. Also has the Earth Engine API enabled and is used as both quota and asset project for native ingestion (`ingest_full_collection_{version}.py`) — API costs for ingestion land here.
 
 The COG conversion startup scripts run on GCP VMs (created in `akveg-map`). The VM's default service account has access to `akveg-data` but **not** to `smp-ee-files` — so the raw archive step must be run locally on mason first (see Workflow Order). The VM must be created **without** `--no-address`; omitting a public IP breaks GCS connectivity even with `--scopes=cloud-platform`.
 
@@ -20,7 +20,8 @@ The COG conversion startup scripts run on GCP VMs (created in `akveg-map`). The 
 - Raw source TIFFs: `gs://smp-ee-files/30m_land_sent/{year}/{tile_id}.tif`
 - Raw archive (versioned copy): `gs://akveg-data/disturbance/potter_cnn/{version}/smp-ee-files/30m_land_sent/`
 - COGs: `gs://akveg-data/disturbance/potter_cnn/{version}/{year}/{tile_id}.tif`
-- EE collection: `projects/fisl-tundra-fire/assets/potter_fire_{version}`
+- EE collection (COG-backed): `projects/fisl-tundra-fire/assets/potter_fire_{version}`
+- EE collection (native ingested): `projects/fisl-tundra-fire/assets/potter_fire_{version}_ingested`
 - EE asset IDs: `y{year}_t{tile_id}` (e.g., `y2001_t91`)
 
 ## Versioning
@@ -35,9 +36,10 @@ Each ingest version gets its own date-stamped suffix (e.g., `v20260430`). The ve
 When starting a new version, create versioned copies of the relevant scripts rather than modifying the old ones:
 - `cog_conversion/startup_all_years_cog_{version}.sh`
 - `ee_registration/register_full_collection_{version}.py`
+- `ee_registration/ingest_full_collection_{version}.py`
 - `qa_utils/compare_ee_gcs_{version}.py`
 
-Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20260430` (multiscale model output, source: `30m_land_sent_multiscale/`, adds 2024, 6,071 assets).
+Current versions in repo: `v20260414` (original, source: `30m_land_sent/`), `v20260430` (multiscale model output, source: `30m_land_sent_multiscale/`, adds 2024, 6,071 assets; has both COG-backed and native-ingested ICs).
 
 ## Workflow Order
 
@@ -101,7 +103,7 @@ bash tests/test_conversion_10.sh
 
 **cog_conversion/** — Two scripts per version: `archive_raw_{version}.sh` runs locally on mason and rsyncs raw TIFFs from `smp-ee-files` into the versioned prefix in `akveg-data` (this is how version history is preserved, since `smp-ee-files` overwrites in place). `startup_all_years_cog_{version}.sh` is the VM startup script — it reads from the `akveg-data` archive, converts to COGs in 32-parallel, and self-deletes the VM on completion.
 
-**ee_registration/** — EE asset ingestion. `register_full_collection_{version}.py` uses `ThreadPoolExecutor(max_workers=5)` with exponential backoff (`2^attempt + random()`, max 5 retries) for HTTP 429 rate limits. All scripts skip already-registered assets (idempotent). `register_missing.py` is for manually hardcoded stragglers after audit.
+**ee_registration/** — Two registration approaches per version. `register_full_collection_{version}.py` creates COG-backed external assets (`gcs_location`) — fast, no GEE storage used, but end-user queries read pixels from GCS so bucket IAM affects reliability. `ingest_full_collection_{version}.py` submits native ingestion tasks (`image:import`) — pixels copied into GEE internal storage, no GCS dependency after completion, uses `fisl-tundra-fire` as quota project. Both use `ThreadPoolExecutor(max_workers=5)` with exponential backoff (`2^attempt + random()`, max 5 retries) and skip already-registered assets (idempotent). `register_missing.py` is for manually hardcoded stragglers after audit.
 
 **qa_utils/** — Auditing. `compare_ee_gcs_{version}.py` diffs EE collection vs. GCS COG bucket. `compare_raw_versions.py` compares two raw GCS inventories by year/tile. `delete_collection.py` destroys an EE collection and all children — use only to start over on a specific version.
 
