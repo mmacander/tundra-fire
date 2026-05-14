@@ -17,6 +17,8 @@ Usage:
     --fire-years  Comma-separated years (e.g. "1988,1989") or "all" (default)
     --version     Output version tag (default v20260513)
     --tile-scale  EE tileScale for reduceRegion (default 4; raise to 8/16 if OOM)
+    --no-reburn   Skip prev/next-fire masking (larger N, but reburn-contaminated
+                  trajectories). Output filenames get a "_noreburn" suffix.
     --dry-run     Build and describe tasks without calling task.start()
 """
 
@@ -284,19 +286,26 @@ def make_flatten_logic(fire_year):
     return flatten_logic
 
 
-def build_fire_year_fc(fire_year, fires_ic, roi, roi_mask, lc_stack, pft_stack):
+def build_fire_year_fc(fire_year, fires_ic, roi, roi_mask, lc_stack, pft_stack,
+                       no_reburn=False):
     """
     Build the ee.FeatureCollection for one fire year (NOT evaluated yet).
     One grouped 432-band percentile reduceRegion replaces the original 36-call
     inner loop, cutting pixel reads by ~36x.
+
+    no_reburn=True skips the prev/next-fire masking; pixels that reburned in
+    another year still contribute to the trajectory (larger N, but contaminated).
     """
     fire_year_img = (fires_ic
                      .filter(ee.Filter.calendarRange(fire_year, fire_year, 'year'))
                      .first())
 
-    prev_img, next_img = build_prev_next_mosaics(fires_ic, fire_year)
-    prefire_lc         = get_prefire_lc(lc_stack, fire_year)
-    masked_pft         = apply_fire_history_masks(pft_stack, prev_img, next_img)
+    prefire_lc = get_prefire_lc(lc_stack, fire_year)
+    if no_reburn:
+        masked_pft = pft_stack
+    else:
+        prev_img, next_img = build_prev_next_mosaics(fires_ic, fire_year)
+        masked_pft         = apply_fire_history_masks(pft_stack, prev_img, next_img)
 
     # Band 0 = prefire_lc (grouping key); bands 1..432 = masked PFT values
     stack = (prefire_lc
@@ -334,6 +343,9 @@ def parse_args():
                    help=f'Output version tag (default: {VERSION})')
     p.add_argument('--tile-scale', type=int, default=TILE_SCALE,
                    help=f'EE tileScale (default: {TILE_SCALE}; raise to 8/16 if OOM)')
+    p.add_argument('--no-reburn', action='store_true',
+                   help='Skip reburn masking (larger N, contaminated trajectories); '
+                        'adds "_noreburn" suffix to output filenames')
     p.add_argument('--dry-run', action='store_true',
                    help='Describe tasks without starting them')
     return p.parse_args()
@@ -367,19 +379,22 @@ def main():
     if not target_years:
         log.error('No valid fire years to process. Exiting.')
         sys.exit(1)
+    reburn_suffix = '_noreburn' if args.no_reburn else ''
+    log.info('Reburn masking: %s', 'disabled' if args.no_reburn else 'enabled')
     log.info('Processing %d fire year(s): %s%s',
              len(target_years),
              target_years[:8],
              ' ...' if len(target_years) > 8 else '')
 
     os.makedirs(LOG_DIR, exist_ok=True)
-    task_log_path = os.path.join(LOG_DIR, f'{args.version}_tasks.json')
+    task_log_path = os.path.join(LOG_DIR, f'{args.version}{reburn_suffix}_tasks.json')
     tasks = {}
 
     for fire_year in target_years:
         log.info('  fire_year=%d: building FC expression...', fire_year)
-        fc = build_fire_year_fc(fire_year, fires_ic, roi, roi_mask, lc_stack, pft_stack)
-        desc = f'lc_pft_fire{fire_year}_{args.version}'
+        fc = build_fire_year_fc(fire_year, fires_ic, roi, roi_mask, lc_stack, pft_stack,
+                                no_reburn=args.no_reburn)
+        desc = f'lc_pft_fire{fire_year}_{args.version}{reburn_suffix}'
         task = ee.batch.Export.table.toDrive(
             collection=fc,
             description=desc,
